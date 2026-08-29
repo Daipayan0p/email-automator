@@ -64,7 +64,7 @@ def save_rules(rules):
 
 
 # ============================================================
-# CHECK TEXT CONDITION
+# TEXT MATCH
 # ============================================================
 
 def text_matches(
@@ -78,7 +78,7 @@ def text_matches(
     if not value:
         return False
 
-    return expected.lower() in value.lower()
+    return expected.lower() in str(value).lower()
 
 
 # ============================================================
@@ -90,11 +90,14 @@ def matches_rule(
     rule
 ):
 
+    # --------------------------------------------------------
+    # Disabled rule
+    # --------------------------------------------------------
+
     if not rule.get(
         "enabled",
         True
     ):
-
         return False
 
     mode = rule.get(
@@ -103,7 +106,7 @@ def matches_rule(
     )
 
     # --------------------------------------------------------
-    # Rule that matches every email
+    # Match every email
     # --------------------------------------------------------
 
     if mode == "ALL_EMAILS":
@@ -124,7 +127,6 @@ def matches_rule(
             email.get("sender", ""),
             conditions["sender"]
         ):
-
             return False
 
     # --------------------------------------------------------
@@ -137,7 +139,30 @@ def matches_rule(
             email.get("recipient", ""),
             conditions["recipient"]
         ):
+            return False
 
+    # --------------------------------------------------------
+    # CC
+    # --------------------------------------------------------
+
+    if conditions.get("cc"):
+
+        if not text_matches(
+            email.get("cc", ""),
+            conditions["cc"]
+        ):
+            return False
+
+    # --------------------------------------------------------
+    # BCC
+    # --------------------------------------------------------
+
+    if conditions.get("bcc"):
+
+        if not text_matches(
+            email.get("bcc", ""),
+            conditions["bcc"]
+        ):
             return False
 
     # --------------------------------------------------------
@@ -150,7 +175,6 @@ def matches_rule(
             email.get("subject", ""),
             conditions["subject"]
         ):
-
             return False
 
     # --------------------------------------------------------
@@ -163,41 +187,38 @@ def matches_rule(
             email.get("body", ""),
             conditions["body"]
         ):
-
             return False
 
     # --------------------------------------------------------
     # General query
     #
-    # This searches the email body.
-    # Attachment searching is handled by the core engine.
+    # This checks:
+    #   sender
+    #   recipient
+    #   subject
+    #   body
+    #
+    # Attachment CONTENT is checked by engine.py
+    # because rules.py doesn't have Gmail service access.
     # --------------------------------------------------------
 
     if conditions.get("query"):
 
-        query = conditions["query"].lower()
-
-        body = email.get(
-            "body",
-            ""
+        query = str(
+            conditions["query"]
         ).lower()
 
-        subject = email.get(
-            "subject",
-            ""
-        ).lower()
+        searchable_text = " ".join([
+            str(email.get("sender", "")),
+            str(email.get("recipient", "")),
+            str(email.get("cc", "")),
+            str(email.get("bcc", "")),
+            str(email.get("subject", "")),
+            str(email.get("body", "")),
+            str(email.get("snippet", ""))
+        ]).lower()
 
-        sender = email.get(
-            "sender",
-            ""
-        ).lower()
-
-        if (
-            query not in body
-            and query not in subject
-            and query not in sender
-        ):
-
+        if query not in searchable_text:
             return False
 
     # --------------------------------------------------------
@@ -221,7 +242,6 @@ def matches_rule(
             has_attachment
             != conditions["has_attachment"]
         ):
-
             return False
 
     # --------------------------------------------------------
@@ -232,7 +252,7 @@ def matches_rule(
         "attachment_filename"
     ):
 
-        expected_filename = (
+        expected_filename = str(
             conditions[
                 "attachment_filename"
             ]
@@ -245,9 +265,11 @@ def matches_rule(
             []
         ):
 
-            filename = attachment.get(
-                "filename",
-                ""
+            filename = str(
+                attachment.get(
+                    "filename",
+                    ""
+                )
             ).lower()
 
             if expected_filename in filename:
@@ -266,7 +288,7 @@ def matches_rule(
         "attachment_type"
     ):
 
-        expected_type = (
+        expected_type = str(
             conditions[
                 "attachment_type"
             ]
@@ -279,14 +301,18 @@ def matches_rule(
             []
         ):
 
-            filename = attachment.get(
-                "filename",
-                ""
+            filename = str(
+                attachment.get(
+                    "filename",
+                    ""
+                )
             ).lower()
 
-            mime_type = attachment.get(
-                "mime_type",
-                ""
+            mime_type = str(
+                attachment.get(
+                    "mime_type",
+                    ""
+                )
             ).lower()
 
             if (
@@ -309,10 +335,12 @@ def matches_rule(
     ) is not None:
 
         if (
-            email.get("is_unread", False)
+            email.get(
+                "is_unread",
+                False
+            )
             != conditions["is_unread"]
         ):
-
             return False
 
     # --------------------------------------------------------
@@ -324,10 +352,12 @@ def matches_rule(
     ) is not None:
 
         if (
-            email.get("is_starred", False)
+            email.get(
+                "is_starred",
+                False
+            )
             != conditions["is_starred"]
         ):
-
             return False
 
     # --------------------------------------------------------
@@ -336,7 +366,7 @@ def matches_rule(
 
     if conditions.get("label"):
 
-        expected_label = (
+        expected_label = str(
             conditions["label"]
         ).upper()
 
@@ -349,11 +379,10 @@ def matches_rule(
         ]
 
         if expected_label not in labels:
-
             return False
 
     # --------------------------------------------------------
-    # All conditions passed
+    # All metadata conditions passed
     # --------------------------------------------------------
 
     return True
@@ -378,8 +407,6 @@ def find_matching_rules(
             rule
         ):
 
-            matches.append(
-                rule
-            )
+            matches.append(rule)
 
     return matches

@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field
 from app.core.gmail import get_gmail_service
 from app.core.engine import process_email
 from app.core.query_builder import build_gmail_query
-
+from app.core.pubsub import (
+    process_pubsub_notification
+)
 
 router = APIRouter()
 
@@ -414,6 +416,34 @@ def search_emails(
         }
 
     except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+@router.post("/pubsub")
+async def pubsub_webhook(
+    body: dict
+):
+
+    try:
+
+        result = process_pubsub_notification(
+            body
+        )
+
+        return {
+            "status": "ok",
+            **result
+        }
+
+    except Exception as e:
+
+        print(
+            "Pub/Sub error:",
+            str(e)
+        )
 
         raise HTTPException(
             status_code=500,

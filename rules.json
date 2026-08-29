@@ -4,7 +4,9 @@
         "name": "All Emails",
         "enabled": true,
         "mode": "ALL_EMAILS",
-        "conditions": {}
+        "conditions": {
+            "query": "Y5Z6X3W9"
+        }
     },
     {
         "id": "honeywell-jobs",
