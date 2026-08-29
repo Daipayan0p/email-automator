@@ -1,0 +1,19 @@
+[
+    {
+        "id": "all-mails",
+        "name": "All Emails",
+        "enabled": true,
+        "mode": "ALL_EMAILS",
+        "conditions": {}
+    },
+    {
+        "id": "honeywell-jobs",
+        "name": "Honeywell Jobs",
+        "enabled": true,
+        "mode": "CONDITIONAL",
+        "conditions": {
+            "sender": "honeywell.com",
+            "query": "software engineer"
+        }
+    }
+]
