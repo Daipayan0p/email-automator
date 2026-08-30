@@ -6,6 +6,10 @@ import os
 import base64
 
 
+# ============================================================
+# PATHS
+# ============================================================
+
 BASE_DIR = os.path.dirname(
     os.path.dirname(
         os.path.dirname(
@@ -19,10 +23,19 @@ TOKEN_FILE = os.path.join(
     "token.json"
 )
 
+
+# ============================================================
+# GMAIL CONFIGURATION
+# ============================================================
+
 SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly"
+    "https://www.googleapis.com/auth/gmail.modify"
 ]
 
+
+# ============================================================
+# GMAIL AUTHENTICATION
+# ============================================================
 
 def get_gmail_service():
 
@@ -41,6 +54,10 @@ def get_gmail_service():
             f"token.json not found at:\n{TOKEN_FILE}"
         )
 
+    # --------------------------------------------------------
+    # Refresh token if necessary
+    # --------------------------------------------------------
+
     if creds.expired and creds.refresh_token:
 
         creds.refresh(Request())
@@ -55,12 +72,20 @@ def get_gmail_service():
                 creds.to_json()
             )
 
+    # --------------------------------------------------------
+    # Gmail API service
+    # --------------------------------------------------------
+
     return build(
         "gmail",
         "v1",
         credentials=creds
     )
 
+
+# ============================================================
+# DECODE GMAIL BODY / ATTACHMENT
+# ============================================================
 
 def decode_body(data):
 

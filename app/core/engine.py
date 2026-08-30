@@ -1,3 +1,7 @@
+# ============================================================
+# EMAIL PROCESSING ENGINE
+# ============================================================
+
 from .search import (
     fetch_email,
     analyze_email
@@ -5,109 +9,211 @@ from .search import (
 
 from .rules import (
     load_rules,
-    matches_rule
+    matches_rule,
+    get_rule_priority
 )
 
 from .attachments import (
     search_attachments
 )
 
-from .result_store import (
-    save_match
+from .actions import (
+    execute_actions
 )
 
 
 # ============================================================
-# CHECK RULE
+# ACTION CONFLICT GROUPS
 # ============================================================
 
-def rule_matches_email(
-    service,
-    email,
-    rule
+# Actions in the same group conflict with each other.
+#
+# Example:
+#
+# mark_as_read
+# mark_as_unread
+#
+# Only the highest-priority rule gets to decide.
+
+CONFLICT_GROUPS = {
+
+    "read_state": {
+        "mark_as_read",
+        "mark_as_unread"
+    },
+
+    "star_state": {
+        "star",
+        "unstar"
+    },
+
+    "inbox_state": {
+        "archive",
+        "keep_in_inbox"
+    }
+}
+
+
+# ============================================================
+# GET CONFLICT GROUP
+# ============================================================
+
+def get_conflict_group(
+    action_name
 ):
 
+    for group_name, actions in CONFLICT_GROUPS.items():
+
+        if action_name in actions:
+            return group_name
+
+    return None
+
+
+# ============================================================
+# RESOLVE ACTION CONFLICTS
+# ============================================================
+
+def resolve_action_conflicts(
+    matching_rules
+):
+
+    """
+    Resolve conflicts between matching rules.
+
+    Rules are sorted by priority.
+
+    Higher priority wins only when two actions
+    belong to the same conflict group.
+
+    Non-conflicting actions are preserved.
+    """
+
     # --------------------------------------------------------
-    # Check normal conditions
+    # Highest priority first
     # --------------------------------------------------------
 
-    if not matches_rule(
-        email,
-        rule
-    ):
-        return False, [], False
-
-    conditions = rule.get(
-        "conditions",
-        {}
+    sorted_rules = sorted(
+        matching_rules,
+        key=get_rule_priority,
+        reverse=True
     )
 
-    query = conditions.get(
-        "query"
-    )
+    selected_actions = []
 
-    attachment_results = []
-
-    body_match = False
+    claimed_conflicts = set()
 
     # --------------------------------------------------------
-    # Search query
+    # Process each rule
     # --------------------------------------------------------
 
-    if query:
+    for rule in sorted_rules:
 
-        query_lower = str(
-            query
-        ).lower()
-
-        searchable_text = " ".join([
-            str(email.get("sender", "")),
-            str(email.get("recipient", "")),
-            str(email.get("cc", "")),
-            str(email.get("bcc", "")),
-            str(email.get("subject", "")),
-            str(email.get("body", "")),
-            str(email.get("snippet", ""))
-        ]).lower()
-
-        body_match = (
-            query_lower in searchable_text
+        actions = rule.get(
+            "actions",
+            {}
         )
 
-        # ----------------------------------------------------
-        # Search attachments
-        # ----------------------------------------------------
-
-        attachment_results = search_attachments(
-            service,
-            email["id"],
-            email["payload"],
-            query
-        )
-
-        attachment_match = (
-            len(attachment_results) > 0
-        )
-
-        # ----------------------------------------------------
-        # Query must exist somewhere
-        # ----------------------------------------------------
-
-        if (
-            not body_match
-            and not attachment_match
+        if not isinstance(
+            actions,
+            dict
         ):
-            return False, [], False
+            continue
 
-    # --------------------------------------------------------
-    # Rule matched
-    # --------------------------------------------------------
+        priority = get_rule_priority(
+            rule
+        )
 
-    return (
-        True,
-        attachment_results,
-        body_match
-    )
+        rule_id = rule.get(
+            "id"
+        )
+
+        rule_name = rule.get(
+            "name",
+            ""
+        )
+
+        # ----------------------------------------------------
+        # Process every action
+        # ----------------------------------------------------
+
+        for action_name, action_value in actions.items():
+
+            # ------------------------------------------------
+            # Ignore disabled actions
+            # ------------------------------------------------
+
+            if not action_value:
+                continue
+
+            # ------------------------------------------------
+            # Label actions are always additive
+            # ------------------------------------------------
+
+            if action_name == "add_label":
+
+                selected_actions.append({
+                    "rule": rule,
+                    "action": action_name,
+                    "value": action_value,
+                    "priority": priority
+                })
+
+                continue
+
+            # ------------------------------------------------
+            # Find conflict group
+            # ------------------------------------------------
+
+            conflict_group = get_conflict_group(
+                action_name
+            )
+
+            # ------------------------------------------------
+            # Non-conflicting action
+            # ------------------------------------------------
+
+            if conflict_group is None:
+
+                selected_actions.append({
+                    "rule": rule,
+                    "action": action_name,
+                    "value": action_value,
+                    "priority": priority
+                })
+
+                continue
+
+            # ------------------------------------------------
+            # Conflicting action
+            # ------------------------------------------------
+
+            if conflict_group in claimed_conflicts:
+
+                print(
+                    f"⚠️ CONFLICT SKIPPED: "
+                    f"{rule_name} -> {action_name} "
+                    f"(priority {priority})"
+                )
+
+                continue
+
+            # ------------------------------------------------
+            # Highest-priority action wins
+            # ------------------------------------------------
+
+            claimed_conflicts.add(
+                conflict_group
+            )
+
+            selected_actions.append({
+                "rule": rule,
+                "action": action_name,
+                "value": action_value,
+                "priority": priority
+            })
+
+    return selected_actions
 
 
 # ============================================================
@@ -120,14 +226,15 @@ def process_email(
     query=None
 ):
 
-    # --------------------------------------------------------
-    # Fetch email
-    # --------------------------------------------------------
+    # ========================================================
+    # FETCH EMAIL
+    # ========================================================
 
     email = fetch_email(
         service,
         message_id
     )
+
 
     # ========================================================
     # MANUAL SEARCH MODE
@@ -142,7 +249,6 @@ def process_email(
         )
 
         return {
-
             "matched":
                 analysis["matched"],
 
@@ -159,14 +265,15 @@ def process_email(
                 analysis["attachment_match"],
 
             "attachment_results":
-                analysis[
-                    "attachment_results"
-                ],
+                analysis["attachment_results"],
 
             "matching_rules":
-                []
+                [],
 
+            "actions":
+                []
         }
+
 
     # ========================================================
     # AUTOMATIC RULE MODE
@@ -176,65 +283,345 @@ def process_email(
 
     matching_rules = []
 
-    all_attachment_results = []
+    attachment_results = []
 
-    overall_body_match = False
+    body_match = False
 
-    # --------------------------------------------------------
-    # Check every rule
-    # --------------------------------------------------------
+
+    # ========================================================
+    # CHECK EVERY RULE
+    # ========================================================
 
     for rule in rules:
 
-        (
-            matched,
-            attachment_results,
-            body_match
-        ) = rule_matches_email(
-            service,
+        # ----------------------------------------------------
+        # Check normal conditions
+        # ----------------------------------------------------
+
+        if not matches_rule(
             email,
+            rule
+        ):
+            continue
+
+        conditions = rule.get(
+            "conditions",
+            {}
+        )
+
+        rule_query = conditions.get(
+            "query"
+        )
+
+
+        # ====================================================
+        # QUERY SEARCH
+        # ====================================================
+
+        if rule_query:
+
+            query_lower = str(
+                rule_query
+            ).lower()
+
+
+            # ------------------------------------------------
+            # Search email content
+            # ------------------------------------------------
+
+            searchable_text = " ".join([
+                str(email.get("sender", "")),
+                str(email.get("recipient", "")),
+                str(email.get("cc", "")),
+                str(email.get("bcc", "")),
+                str(email.get("subject", "")),
+                str(email.get("body", "")),
+                str(email.get("snippet", ""))
+            ]).lower()
+
+
+            current_body_match = (
+                query_lower
+                in searchable_text
+            )
+
+
+            # ------------------------------------------------
+            # Search attachments
+            # ------------------------------------------------
+
+            current_attachment_results = (
+                search_attachments(
+                    service,
+                    email["id"],
+                    email["payload"],
+                    rule_query
+                )
+            )
+
+
+            current_attachment_match = (
+                len(
+                    current_attachment_results
+                ) > 0
+            )
+
+
+            # ------------------------------------------------
+            # Query not found
+            # ------------------------------------------------
+
+            if (
+                not current_body_match
+                and
+                not current_attachment_match
+            ):
+                continue
+
+
+            if current_body_match:
+
+                body_match = True
+
+
+            # ------------------------------------------------
+            # Add unique attachment results
+            # ------------------------------------------------
+
+            for result in current_attachment_results:
+
+                if result not in attachment_results:
+
+                    attachment_results.append(
+                        result
+                    )
+
+
+        # ====================================================
+        # RULE MATCHED
+        # ====================================================
+
+        matching_rules.append(
             rule
         )
 
-        if matched:
 
-            matching_rules.append(
-                rule
-            )
+    # ========================================================
+    # SORT RULES BY PRIORITY
+    # ========================================================
 
-            all_attachment_results.extend(
-                attachment_results
-            )
+    matching_rules.sort(
+        key=get_rule_priority,
+        reverse=True
+    )
 
-            if body_match:
 
-                overall_body_match = True
-
-    # --------------------------------------------------------
-    # Overall match
-    # --------------------------------------------------------
+    # ========================================================
+    # FINAL MATCH
+    # ========================================================
 
     matched = (
         len(matching_rules) > 0
     )
 
-    # --------------------------------------------------------
-    # Save
-    # --------------------------------------------------------
 
-    saved = False
+    # ========================================================
+    # RESOLVE ACTION CONFLICTS
+    # ========================================================
+
+    selected_actions = []
 
     if matched:
 
-        saved = save_match(
-            email=email,
-            matching_rules=matching_rules,
-            attachment_results=all_attachment_results,
-            body_match=overall_body_match
+        selected_actions = resolve_action_conflicts(
+            matching_rules
         )
 
+
     # ========================================================
-    # RETURN
+    # EXECUTE SELECTED ACTIONS
+    # ========================================================
+
+    action_results = []
+
+    saved = False
+
+
+    for selected in selected_actions:
+
+        rule = selected["rule"]
+
+        action_name = selected["action"]
+
+        priority = selected["priority"]
+
+
+        # ----------------------------------------------------
+        # Build a temporary rule containing ONLY this action
+        # ----------------------------------------------------
+
+        action_rule = dict(
+            rule
+        )
+
+        action_rule["actions"] = {
+            action_name:
+                selected["value"]
+        }
+
+
+        print()
+        print(
+            "=" * 50
+        )
+
+        print(
+            "EXECUTING ACTION"
+        )
+
+        print(
+            "Rule:",
+            rule.get(
+                "name",
+                ""
+            )
+        )
+
+        print(
+            "Priority:",
+            priority
+        )
+
+        print(
+            "Action:",
+            action_name
+        )
+
+        print(
+            "=" * 50
+        )
+
+
+        try:
+
+            executed_actions = (
+                execute_actions(
+                    service,
+                    email,
+                    action_rule
+                )
+            )
+
+
+            for action_result in executed_actions:
+
+                action_results.append({
+
+                    "rule_id":
+                        rule.get(
+                            "id"
+                        ),
+
+                    "rule_name":
+                        rule.get(
+                            "name",
+                            ""
+                        ),
+
+                    "priority":
+                        priority,
+
+                    "action":
+                        action_result.get(
+                            "action"
+                        ),
+
+                    "result":
+                        action_result
+
+                })
+
+
+                # ------------------------------------------------
+                # Correct save status
+                # ------------------------------------------------
+
+                if (
+                    action_result.get(
+                        "action"
+                    ) == "save"
+                    and
+                    action_result.get(
+                        "success"
+                    ) is True
+                ):
+
+                    saved = True
+
+
+        except Exception as e:
+
+            print()
+            print(
+                "❌ ACTION FAILED"
+            )
+
+            print(
+                "Rule:",
+                rule.get(
+                    "name",
+                    ""
+                )
+            )
+
+            print(
+                "Action:",
+                action_name
+            )
+
+            print(
+                "Error:",
+                str(e)
+            )
+
+
+            action_results.append({
+
+                "rule_id":
+                    rule.get(
+                        "id"
+                    ),
+
+                "rule_name":
+                    rule.get(
+                        "name",
+                        ""
+                    ),
+
+                "priority":
+                    priority,
+
+                "action":
+                    action_name,
+
+                "result": {
+
+                    "action":
+                        action_name,
+
+                    "success":
+                        False,
+
+                    "error":
+                        str(e)
+
+                }
+
+            })
+
+
+    # ========================================================
+    # RETURN RESULT
     # ========================================================
 
     return {
@@ -249,17 +636,20 @@ def process_email(
             email,
 
         "body_match":
-            overall_body_match,
+            body_match,
 
         "attachment_match":
             len(
-                all_attachment_results
+                attachment_results
             ) > 0,
 
         "attachment_results":
-            all_attachment_results,
+            attachment_results,
 
         "matching_rules":
-            matching_rules
+            matching_rules,
+
+        "actions":
+            action_results
 
     }

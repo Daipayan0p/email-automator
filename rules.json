@@ -1,21 +1,32 @@
 [
     {
-        "id": "all-mails",
-        "name": "All Emails",
+        "id": "high-priority-rule",
+        "name": "High Priority - Mark Read",
         "enabled": true,
-        "mode": "ALL_EMAILS",
+        "mode": "CONDITIONAL",
+        "priority": 100,
         "conditions": {
-            "query": "Y5Z6X3W9"
+            "sender": "d.neogi.68@gmail.com"
+        },
+        "actions": {
+            "mark_as_read": true,
+            "star": true,
+            "add_label": "HIGH-PRIORITY"
         }
     },
     {
-        "id": "honeywell-jobs",
-        "name": "Honeywell Jobs",
+        "id": "low-priority-rule",
+        "name": "Low Priority - Mark Unread",
         "enabled": true,
         "mode": "CONDITIONAL",
+        "priority": 10,
         "conditions": {
-            "sender": "honeywell.com",
-            "query": "software engineer"
+            "sender": "d.neogi.68@gmail.com"
+        },
+        "actions": {
+            "mark_as_unread": true,
+            "unstar": true,
+            "add_label": "LOW-PRIORITY"
         }
     }
 ]
