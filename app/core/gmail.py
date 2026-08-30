@@ -5,6 +5,7 @@ from googleapiclient.discovery import build
 import base64
 import json
 
+from app.config import GMAIL_SCOPES
 from .auth_store import load_token, save_token
 
 
@@ -12,9 +13,7 @@ from .auth_store import load_token, save_token
 # GMAIL CONFIGURATION
 # ============================================================
 
-SCOPES = [
-    "https://www.googleapis.com/auth/gmail.modify"
-]
+SCOPES = GMAIL_SCOPES
 
 
 # ============================================================

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.core.auth_store import load_token
 from app.core.database import init_database
 from app.api.routes import router
-from app.watch import start_gmail_watch
+from app.services.gmail_watch import start_gmail_watch
 from app.api.auth_api import router as auth_router
 from app.api.rules_api import router as rules_router
 from app.api.actions_api import router as actions_router

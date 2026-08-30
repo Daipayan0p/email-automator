@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional
 
-from app.core.rule_repository import (
+from app.repositories.rule_repository import (
     create_rule,
     get_all_rules,
     get_rule_by_id,

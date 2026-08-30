@@ -1,5 +1,5 @@
 from app.core.database import init_database
-from app.core.repository import get_action_history
+from app.repositories.email_repository import get_action_history
 
 
 # ============================================================

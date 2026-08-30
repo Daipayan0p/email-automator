@@ -15,19 +15,16 @@ from app.core.auth_store import (
     save_oauth_session,
     save_token,
 )
+from app.config import CREDENTIALS_FILE, OAUTH_REDIRECT_URI
 from app.core.gmail import SCOPES
-from app.watch import start_gmail_watch
+from app.services.gmail_watch import start_gmail_watch
 
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CREDENTIALS_FILE = os.path.join(BASE_DIR, "credentials.json")
-DEFAULT_REDIRECT_URI = "http://localhost:8080/auth/google/callback"
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 def get_redirect_uri():
-    return os.getenv("OAUTH_REDIRECT_URI", DEFAULT_REDIRECT_URI)
+    return OAUTH_REDIRECT_URI
 
 
 def create_flow():

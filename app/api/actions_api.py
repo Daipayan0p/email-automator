@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.core.repository import get_action_history
+from app.repositories.email_repository import get_action_history
 
 
 # ============================================================

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.core.repository import (
+from app.repositories.email_repository import (
     get_all_emails,
     get_email_by_id,
     delete_email

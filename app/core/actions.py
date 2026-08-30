@@ -2,7 +2,7 @@
 # ACTION ENGINE
 # ============================================================
 
-from .repository import (
+from app.repositories.email_repository import (
     save_email_result,
     log_action_execution
 )
