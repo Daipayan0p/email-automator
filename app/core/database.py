@@ -277,6 +277,23 @@ def init_database():
 
 
     # ========================================================
+    # OAUTH PKCE SESSIONS
+    # ========================================================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS oauth_sessions (
+
+            state TEXT PRIMARY KEY,
+
+            code_verifier TEXT NOT NULL,
+
+            created_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+    # ========================================================
     # COMMIT
     # ========================================================
 

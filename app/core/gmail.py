@@ -2,26 +2,10 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-import os
 import base64
+import json
 
-
-# ============================================================
-# PATHS
-# ============================================================
-
-BASE_DIR = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
-)
-
-TOKEN_FILE = os.path.join(
-    BASE_DIR,
-    "token.json"
-)
+from .auth_store import load_token, save_token
 
 
 # ============================================================
@@ -39,20 +23,17 @@ SCOPES = [
 
 def get_gmail_service():
 
-    creds = None
+    token_data = load_token()
 
-    if os.path.exists(TOKEN_FILE):
-
-        creds = Credentials.from_authorized_user_file(
-            TOKEN_FILE,
-            SCOPES
-        )
-
-    else:
-
+    if not token_data:
         raise Exception(
-            f"token.json not found at:\n{TOKEN_FILE}"
+            "Gmail not authenticated. Call GET /auth/google/login first."
         )
+
+    creds = Credentials.from_authorized_user_info(
+        token_data,
+        SCOPES
+    )
 
     # --------------------------------------------------------
     # Refresh token if necessary
@@ -62,15 +43,9 @@ def get_gmail_service():
 
         creds.refresh(Request())
 
-        with open(
-            TOKEN_FILE,
-            "w",
-            encoding="utf-8"
-        ) as token:
-
-            token.write(
-                creds.to_json()
-            )
+        save_token(
+            json.loads(creds.to_json())
+        )
 
     # --------------------------------------------------------
     # Gmail API service

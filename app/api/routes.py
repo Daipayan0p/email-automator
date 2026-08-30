@@ -190,6 +190,12 @@ def get_email(
 
     except Exception as e:
 
+        if "not authenticated" in str(e).lower():
+            raise HTTPException(
+                status_code=401,
+                detail="Gmail not authenticated. Call GET /auth/google/login first."
+            )
+
         raise HTTPException(
             status_code=500,
             detail=str(e)
@@ -417,6 +423,12 @@ def search_emails(
 
     except Exception as e:
 
+        if "not authenticated" in str(e).lower():
+            raise HTTPException(
+                status_code=401,
+                detail="Gmail not authenticated. Call GET /auth/google/login first."
+            )
+
         raise HTTPException(
             status_code=500,
             detail=str(e)
@@ -439,6 +451,12 @@ async def pubsub_webhook(
         }
 
     except Exception as e:
+
+        if "not authenticated" in str(e).lower():
+            raise HTTPException(
+                status_code=401,
+                detail="Gmail not authenticated. Call GET /auth/google/login first."
+            )
 
         print(
             "Pub/Sub error:",

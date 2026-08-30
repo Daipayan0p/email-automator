@@ -1,72 +1,9 @@
 import base64
 import json
-import os
 
+from .auth_store import load_history_id, save_state
 from .gmail import get_gmail_service
 from .engine import process_email
-
-
-# ============================================================
-# PATHS
-# ============================================================
-
-BASE_DIR = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
-)
-
-STATE_FILE = os.path.join(
-    BASE_DIR,
-    "state.json"
-)
-
-
-# ============================================================
-# STATE
-# ============================================================
-
-def load_history_id():
-
-    if not os.path.exists(STATE_FILE):
-        return None
-
-    try:
-
-        with open(
-            STATE_FILE,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            state = json.load(file)
-
-        return state.get("historyId")
-
-    except Exception:
-
-        return None
-
-
-def save_history_id(history_id):
-
-    state = {
-        "historyId": history_id
-    }
-
-    with open(
-        STATE_FILE,
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            state,
-            file,
-            indent=4
-        )
 
 
 # ============================================================
@@ -262,9 +199,7 @@ def process_pubsub_notification(
 
     if not previous_history_id:
 
-        save_history_id(
-            notification_history_id
-        )
+        save_state(notification_history_id)
 
         print(
             "No previous history ID."
@@ -394,9 +329,7 @@ def process_pubsub_notification(
     # Update history only after processing.
     # --------------------------------------------------------
 
-    save_history_id(
-        notification_history_id
-    )
+    save_state(notification_history_id)
 
     print()
     print("=" * 60)
