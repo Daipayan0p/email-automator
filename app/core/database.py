@@ -42,12 +42,12 @@ def get_connection():
 def init_database():
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
-    # --------------------------------------------------------
-    # Emails
-    # --------------------------------------------------------
+
+    # ========================================================
+    # EMAILS
+    # ========================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS emails (
@@ -83,9 +83,10 @@ def init_database():
         )
     """)
 
-    # --------------------------------------------------------
-    # Attachments
-    # --------------------------------------------------------
+
+    # ========================================================
+    # ATTACHMENTS
+    # ========================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS attachments (
@@ -109,31 +110,42 @@ def init_database():
         )
     """)
 
-    # --------------------------------------------------------
-    # Rules
-    # --------------------------------------------------------
+
+    # ========================================================
+    # RULES
+    # ========================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS rules (
 
             id TEXT PRIMARY KEY,
 
-            name TEXT,
+            name TEXT NOT NULL,
 
-            enabled INTEGER,
+            enabled INTEGER NOT NULL
+                DEFAULT 1,
 
-            mode TEXT,
+            mode TEXT NOT NULL
+                DEFAULT 'CONDITIONAL',
 
-            conditions TEXT,
+            priority INTEGER NOT NULL
+                DEFAULT 0,
+
+            conditions TEXT NOT NULL
+                DEFAULT '{}',
+
+            actions TEXT NOT NULL
+                DEFAULT '{}',
 
             created_at TIMESTAMP
                 DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------------
-    # Email ↔ Rule matches
-    # --------------------------------------------------------
+
+    # ========================================================
+    # EMAIL ↔ RULE MATCHES
+    # ========================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS email_rule_matches (
@@ -147,7 +159,7 @@ def init_database():
             matched_at TIMESTAMP
                 DEFAULT CURRENT_TIMESTAMP,
 
-            UNIQUE(
+            UNIQUE (
                 email_id,
                 rule_id
             ),
@@ -164,8 +176,111 @@ def init_database():
         )
     """)
 
-    connection.commit()
 
+    # ========================================================
+    # ACTION EXECUTIONS
+    # ========================================================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS action_executions (
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            email_id TEXT NOT NULL,
+
+            rule_id TEXT NOT NULL,
+
+            action TEXT NOT NULL,
+
+            status TEXT NOT NULL,
+
+            error TEXT,
+
+            executed_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP,
+
+            FOREIGN KEY (
+                email_id
+            )
+            REFERENCES emails(id),
+
+            FOREIGN KEY (
+                rule_id
+            )
+            REFERENCES rules(id)
+        )
+    """)
+
+
+    # ========================================================
+    # OAUTH TOKENS
+    #
+    # Replaces:
+    #
+    #     token.json
+    #
+    # For now this is single-user.
+    # Later we can add user_id.
+    # ========================================================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS oauth_tokens (
+
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+
+            token TEXT NOT NULL,
+
+            refresh_token TEXT,
+
+            token_uri TEXT,
+
+            client_id TEXT,
+
+            client_secret TEXT,
+
+            scopes TEXT,
+
+            expiry TEXT,
+
+            created_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP,
+
+            updated_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+    # ========================================================
+    # GMAIL STATE
+    #
+    # Replaces:
+    #
+    #     state.json
+    #
+    # Stores Gmail Pub/Sub history state.
+    # ========================================================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS gmail_state (
+
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+
+            history_id TEXT,
+
+            watch_expiration TEXT,
+
+            updated_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+    # ========================================================
+    # COMMIT
+    # ========================================================
+
+    connection.commit()
     connection.close()
 
 

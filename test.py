@@ -1,14 +1,12 @@
-from app.core.gmail import get_gmail_service
-from app.core.engine import process_email
 from app.core.database import init_database
-from app.core.repository import get_email_by_id
+from app.core.repository import get_action_history
 
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-MESSAGE_ID = "1a0531b895fc6cd4"
+EMAIL_ID = "1a053d6143db6018"
 
 
 # ============================================================
@@ -19,100 +17,56 @@ init_database()
 
 
 # ============================================================
-# CONNECT TO GMAIL
+# GET ACTION HISTORY
 # ============================================================
 
-service = get_gmail_service()
-
-
-# ============================================================
-# PROCESS EMAIL
-# ============================================================
-
-result = process_email(
-    service,
-    MESSAGE_ID
+history = get_action_history(
+    EMAIL_ID
 )
 
 
 # ============================================================
-# PRINT ENGINE RESULT
+# PRINT HISTORY
 # ============================================================
 
 print()
 print("=" * 60)
-print("RULE ENGINE RESULT")
+print("ACTION HISTORY")
 print("=" * 60)
 
-print(
-    "Matched:",
-    result["matched"]
-)
+if not history:
 
-print(
-    "Saved:",
-    result["saved"]
-)
-
-print(
-    "Email:",
-    result["email"]["subject"]
-)
-
-print()
-print("Matching rules:")
-
-for rule in result["matching_rules"]:
-
-    print(
-        f"  ✓ {rule['name']}"
-    )
-
-print()
-print(
-    "Attachments:",
-    len(
-        result["email"].get(
-            "attachments",
-            []
-        )
-    )
-)
-
-print("=" * 60)
-
-
-# ============================================================
-# CHECK DATABASE
-# ============================================================
-
-print()
-print("=" * 60)
-print("DATABASE CHECK")
-print("=" * 60)
-
-saved_email = get_email_by_id(
-    MESSAGE_ID
-)
-
-if saved_email:
-
-    print("✓ Email found in database")
-
-    print(
-        "  Subject:",
-        saved_email["subject"]
-    )
-
-    print(
-        "  Sender:",
-        saved_email["sender"]
-    )
+    print("No action history found.")
 
 else:
 
-    print(
-        "✗ Email NOT found in database"
-    )
+    for item in history:
 
+        print()
+        print(
+            "Action:",
+            item["action"]
+        )
+
+        print(
+            "Rule:",
+            item["rule_id"]
+        )
+
+        print(
+            "Status:",
+            item["status"]
+        )
+
+        print(
+            "Error:",
+            item["error"]
+        )
+
+        print(
+            "Executed:",
+            item["executed_at"]
+        )
+
+print()
 print("=" * 60)

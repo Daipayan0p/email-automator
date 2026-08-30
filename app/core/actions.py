@@ -2,7 +2,10 @@
 # ACTION ENGINE
 # ============================================================
 
-from .repository import save_email_result
+from .repository import (
+    save_email_result,
+    log_action_execution
+)
 
 
 # ============================================================
@@ -61,6 +64,79 @@ def get_or_create_label(
 
 
 # ============================================================
+# RUN ONE ACTION
+# ============================================================
+
+def run_action(
+    email,
+    rule,
+    action_name,
+    function
+):
+
+    try:
+
+        # ----------------------------------------------------
+        # Execute actual action
+        # ----------------------------------------------------
+
+        function()
+
+        # ----------------------------------------------------
+        # Log success
+        # ----------------------------------------------------
+
+        log_action_execution(
+            email["id"],
+            rule.get("id"),
+            action_name,
+            "SUCCESS"
+        )
+
+        print(
+            f"✅ {action_name}: SUCCESS"
+        )
+
+        return {
+            "action": action_name,
+            "success": True
+        }
+
+    except Exception as e:
+
+        # ----------------------------------------------------
+        # Log failure
+        # ----------------------------------------------------
+
+        try:
+
+            log_action_execution(
+                email["id"],
+                rule.get("id"),
+                action_name,
+                "FAILED",
+                str(e)
+            )
+
+        except Exception as log_error:
+
+            print(
+                "⚠️ Failed to log action error:",
+                log_error
+            )
+
+        print(
+            f"❌ {action_name}: FAILED - {e}"
+        )
+
+        return {
+            "action": action_name,
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ============================================================
 # EXECUTE ACTIONS
 # ============================================================
 
@@ -87,7 +163,7 @@ def execute_actions(
         False
     ):
 
-        try:
+        def save():
 
             saved = save_email_result(
                 email,
@@ -96,27 +172,19 @@ def execute_actions(
 
             print(
                 "💾 SAVE:",
-                "SUCCESS" if saved else "ALREADY EXISTS"
+                "NEW EMAIL SAVED"
+                if saved
+                else "ALREADY EXISTS"
             )
 
-            results.append({
-                "action": "save",
-                "success": True,
-                "already_exists": not saved
-            })
+        result = run_action(
+            email,
+            rule,
+            "save",
+            save
+        )
 
-        except Exception as e:
-
-            print(
-                "❌ SAVE FAILED:",
-                str(e)
-            )
-
-            results.append({
-                "action": "save",
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================
@@ -128,7 +196,7 @@ def execute_actions(
         False
     ):
 
-        try:
+        def notify():
 
             print()
             print("=" * 50)
@@ -169,23 +237,14 @@ def execute_actions(
 
             print("=" * 50)
 
-            results.append({
-                "action": "notify",
-                "success": True
-            })
+        result = run_action(
+            email,
+            rule,
+            "notify",
+            notify
+        )
 
-        except Exception as e:
-
-            print(
-                "❌ NOTIFY FAILED:",
-                str(e)
-            )
-
-            results.append({
-                "action": "notify",
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================
@@ -197,7 +256,7 @@ def execute_actions(
         False
     ):
 
-        try:
+        def mark_as_read():
 
             service.users().messages().modify(
                 userId="me",
@@ -209,27 +268,14 @@ def execute_actions(
                 }
             ).execute()
 
-            print(
-                "📖 MARK AS READ: SUCCESS"
-            )
+        result = run_action(
+            email,
+            rule,
+            "mark_as_read",
+            mark_as_read
+        )
 
-            results.append({
-                "action": "mark_as_read",
-                "success": True
-            })
-
-        except Exception as e:
-
-            print(
-                "❌ MARK AS READ FAILED:",
-                str(e)
-            )
-
-            results.append({
-                "action": "mark_as_read",
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================
@@ -241,7 +287,7 @@ def execute_actions(
         False
     ):
 
-        try:
+        def mark_as_unread():
 
             service.users().messages().modify(
                 userId="me",
@@ -253,27 +299,14 @@ def execute_actions(
                 }
             ).execute()
 
-            print(
-                "📕 MARK AS UNREAD: SUCCESS"
-            )
+        result = run_action(
+            email,
+            rule,
+            "mark_as_unread",
+            mark_as_unread
+        )
 
-            results.append({
-                "action": "mark_as_unread",
-                "success": True
-            })
-
-        except Exception as e:
-
-            print(
-                "❌ MARK AS UNREAD FAILED:",
-                str(e)
-            )
-
-            results.append({
-                "action": "mark_as_unread",
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================
@@ -285,7 +318,7 @@ def execute_actions(
         False
     ):
 
-        try:
+        def star():
 
             service.users().messages().modify(
                 userId="me",
@@ -297,27 +330,14 @@ def execute_actions(
                 }
             ).execute()
 
-            print(
-                "⭐ STAR: SUCCESS"
-            )
+        result = run_action(
+            email,
+            rule,
+            "star",
+            star
+        )
 
-            results.append({
-                "action": "star",
-                "success": True
-            })
-
-        except Exception as e:
-
-            print(
-                "❌ STAR FAILED:",
-                str(e)
-            )
-
-            results.append({
-                "action": "star",
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================
@@ -329,7 +349,7 @@ def execute_actions(
         False
     ):
 
-        try:
+        def unstar():
 
             service.users().messages().modify(
                 userId="me",
@@ -341,27 +361,14 @@ def execute_actions(
                 }
             ).execute()
 
-            print(
-                "☆ UNSTAR: SUCCESS"
-            )
+        result = run_action(
+            email,
+            rule,
+            "unstar",
+            unstar
+        )
 
-            results.append({
-                "action": "unstar",
-                "success": True
-            })
-
-        except Exception as e:
-
-            print(
-                "❌ UNSTAR FAILED:",
-                str(e)
-            )
-
-            results.append({
-                "action": "unstar",
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================
@@ -373,7 +380,7 @@ def execute_actions(
         False
     ):
 
-        try:
+        def archive():
 
             service.users().messages().modify(
                 userId="me",
@@ -385,27 +392,14 @@ def execute_actions(
                 }
             ).execute()
 
-            print(
-                "📥 ARCHIVE: SUCCESS"
-            )
+        result = run_action(
+            email,
+            rule,
+            "archive",
+            archive
+        )
 
-            results.append({
-                "action": "archive",
-                "success": True
-            })
-
-        except Exception as e:
-
-            print(
-                "❌ ARCHIVE FAILED:",
-                str(e)
-            )
-
-            results.append({
-                "action": "archive",
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================
@@ -417,7 +411,7 @@ def execute_actions(
         False
     ):
 
-        try:
+        def keep_in_inbox():
 
             service.users().messages().modify(
                 userId="me",
@@ -429,27 +423,14 @@ def execute_actions(
                 }
             ).execute()
 
-            print(
-                "📨 KEEP IN INBOX: SUCCESS"
-            )
+        result = run_action(
+            email,
+            rule,
+            "keep_in_inbox",
+            keep_in_inbox
+        )
 
-            results.append({
-                "action": "keep_in_inbox",
-                "success": True
-            })
-
-        except Exception as e:
-
-            print(
-                "❌ KEEP IN INBOX FAILED:",
-                str(e)
-            )
-
-            results.append({
-                "action": "keep_in_inbox",
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================
@@ -462,7 +443,7 @@ def execute_actions(
 
     if label_name:
 
-        try:
+        def add_label():
 
             label_id = get_or_create_label(
                 service,
@@ -479,28 +460,17 @@ def execute_actions(
                 }
             ).execute()
 
-            print(
-                f"🏷️ LABEL '{label_name}': SUCCESS"
-            )
+        result = run_action(
+            email,
+            rule,
+            "add_label",
+            add_label
+        )
 
-            results.append({
-                "action": "add_label",
-                "label": label_name,
-                "success": True
-            })
+        # Add label name to result
+        result["label"] = label_name
 
-        except Exception as e:
-
-            print(
-                f"❌ ADD LABEL FAILED: {e}"
-            )
-
-            results.append({
-                "action": "add_label",
-                "label": label_name,
-                "success": False,
-                "error": str(e)
-            })
+        results.append(result)
 
 
     # ========================================================

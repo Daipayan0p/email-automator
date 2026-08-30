@@ -4,6 +4,9 @@ from fastapi import FastAPI
 
 from app.api.routes import router
 from app.watch import start_gmail_watch
+from app.api.rules_api import router as rules_router
+from app.api.actions_api import router as actions_router
+from app.api.emails_api import router as emails_router
 
 
 # ============================================================
@@ -60,6 +63,7 @@ app = FastAPI(
 # ROUTES
 # ============================================================
 
-app.include_router(
-    router
-)
+app.include_router(router)
+app.include_router(rules_router)
+app.include_router(actions_router)
+app.include_router(emails_router)

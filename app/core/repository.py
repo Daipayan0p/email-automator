@@ -248,3 +248,173 @@ def get_email_by_id(
     finally:
 
         connection.close()
+
+# ============================================================
+# LOG ACTION EXECUTION
+# ============================================================
+
+def log_action_execution(
+    email_id,
+    rule_id,
+    action,
+    status,
+    error=None
+):
+
+    connection = get_connection()
+
+    try:
+
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            INSERT INTO action_executions (
+                email_id,
+                rule_id,
+                action,
+                status,
+                error
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            email_id,
+            rule_id,
+            action,
+            status,
+            error
+        ))
+
+        connection.commit()
+
+    except Exception:
+
+        connection.rollback()
+        raise
+
+    finally:
+
+        connection.close()
+
+
+# ============================================================
+# GET ACTION HISTORY FOR EMAIL
+# ============================================================
+
+def get_action_history(email_id):
+
+    connection = get_connection()
+
+    try:
+
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT *
+            FROM action_executions
+            WHERE email_id = ?
+            ORDER BY executed_at ASC
+        """, (
+            email_id,
+        ))
+
+        rows = cursor.fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+    finally:
+
+        connection.close()
+
+# ============================================================
+# GET ALL SAVED EMAILS
+# ============================================================
+
+def get_all_emails():
+
+    connection = get_connection()
+
+    try:
+
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT *
+            FROM emails
+            ORDER BY created_at DESC
+        """)
+
+        rows = cursor.fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+    finally:
+
+        connection.close()
+
+# ============================================================
+# DELETE EMAIL
+# ============================================================
+
+def delete_email(email_id):
+
+    connection = get_connection()
+
+    try:
+
+        cursor = connection.cursor()
+
+        # Check email exists
+        cursor.execute("""
+            SELECT id
+            FROM emails
+            WHERE id = ?
+        """, (email_id,))
+
+        email = cursor.fetchone()
+
+        if email is None:
+            return False
+
+        # Delete attachments
+        cursor.execute("""
+            DELETE FROM attachments
+            WHERE email_id = ?
+        """, (email_id,))
+
+        # Delete rule matches
+        cursor.execute("""
+            DELETE FROM email_rule_matches
+            WHERE email_id = ?
+        """, (email_id,))
+
+        # Delete action history
+        cursor.execute("""
+            DELETE FROM action_executions
+            WHERE email_id = ?
+        """, (email_id,))
+
+        # Delete email
+        cursor.execute("""
+            DELETE FROM emails
+            WHERE id = ?
+        """, (email_id,))
+
+        connection.commit()
+
+        return True
+
+    except Exception:
+
+        connection.rollback()
+
+        raise
+
+    finally:
+
+        connection.close()

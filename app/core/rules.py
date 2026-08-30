@@ -1,78 +1,91 @@
 import json
-import os
+
+from .database import get_connection
 
 
 # ============================================================
-# PATH
-# ============================================================
-
-BASE_DIR = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
-)
-
-RULES_FILE = os.path.join(
-    BASE_DIR,
-    "rules.json"
-)
-
-
-# ============================================================
-# LOAD RULES
+# LOAD RULES FROM DATABASE
 # ============================================================
 
 def load_rules():
+    """
+    Load all enabled rules from SQLite.
 
-    if not os.path.exists(RULES_FILE):
-        return []
+    Rules are stored in the database as:
+        - id
+        - name
+        - enabled
+        - mode
+        - priority
+        - conditions
+        - actions
+    """
+
+    connection = get_connection()
 
     try:
-        with open(
-            RULES_FILE,
-            "r",
-            encoding="utf-8"
-        ) as file:
+        cursor = connection.cursor()
 
-            rules = json.load(file)
+        cursor.execute("""
+            SELECT
+                id,
+                name,
+                enabled,
+                mode,
+                priority,
+                conditions,
+                actions
+            FROM rules
+            WHERE enabled = 1
+            ORDER BY priority DESC
+        """)
 
-        if not isinstance(rules, list):
-            return []
+        rows = cursor.fetchall()
+
+        rules = []
+
+        for row in rows:
+
+            rule = dict(row)
+
+            # ------------------------------------------------
+            # Convert SQLite values back to Python values
+            # ------------------------------------------------
+
+            rule["enabled"] = bool(
+                rule.get("enabled", 1)
+            )
+
+            # Conditions are stored as JSON
+            try:
+                rule["conditions"] = json.loads(
+                    rule.get("conditions") or "{}"
+                )
+            except json.JSONDecodeError:
+                rule["conditions"] = {}
+
+            # Actions are stored as JSON
+            try:
+                rule["actions"] = json.loads(
+                    rule.get("actions") or "{}"
+                )
+            except json.JSONDecodeError:
+                rule["actions"] = {}
+
+            # Priority
+            try:
+                rule["priority"] = int(
+                    rule.get("priority", 0)
+                )
+            except (TypeError, ValueError):
+                rule["priority"] = 0
+
+            rules.append(rule)
 
         return rules
 
-    except (
-        json.JSONDecodeError,
-        OSError
-    ):
-
-        return []
-
-
-# ============================================================
-# SAVE RULES
-# ============================================================
-
-def save_rules(rules):
-
-    if not isinstance(rules, list):
-        raise ValueError(
-            "rules must be a list"
-        )
-
-    with open(
-        RULES_FILE,
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            rules,
-            file,
-            indent=4
-        )
+    finally:
+        connection.close()
 
 
 # ============================================================
@@ -82,7 +95,6 @@ def save_rules(rules):
 def get_rule_priority(rule):
 
     try:
-
         return int(
             rule.get(
                 "priority",
@@ -144,6 +156,10 @@ def matches_rule(
     ):
         return False
 
+    # --------------------------------------------------------
+    # Rule mode
+    # --------------------------------------------------------
+
     mode = str(
         rule.get(
             "mode",
@@ -176,7 +192,6 @@ def matches_rule(
     ):
         return False
 
-
     # ========================================================
     # SENDER
     # ========================================================
@@ -188,7 +203,6 @@ def matches_rule(
             conditions["sender"]
         ):
             return False
-
 
     # ========================================================
     # RECIPIENT
@@ -202,7 +216,6 @@ def matches_rule(
         ):
             return False
 
-
     # ========================================================
     # CC
     # ========================================================
@@ -214,7 +227,6 @@ def matches_rule(
             conditions["cc"]
         ):
             return False
-
 
     # ========================================================
     # BCC
@@ -228,7 +240,6 @@ def matches_rule(
         ):
             return False
 
-
     # ========================================================
     # SUBJECT
     # ========================================================
@@ -241,7 +252,6 @@ def matches_rule(
         ):
             return False
 
-
     # ========================================================
     # BODY
     # ========================================================
@@ -253,7 +263,6 @@ def matches_rule(
             conditions["body"]
         ):
             return False
-
 
     # ========================================================
     # GENERAL QUERY
@@ -278,7 +287,6 @@ def matches_rule(
         if query not in searchable_text:
             return False
 
-
     # ========================================================
     # HAS ATTACHMENT
     # ========================================================
@@ -301,7 +309,6 @@ def matches_rule(
             != conditions["has_attachment"]
         ):
             return False
-
 
     # ========================================================
     # ATTACHMENT FILENAME
@@ -332,13 +339,11 @@ def matches_rule(
             ).lower()
 
             if expected_filename in filename:
-
                 found = True
                 break
 
         if not found:
             return False
-
 
     # ========================================================
     # ATTACHMENT TYPE
@@ -379,13 +384,11 @@ def matches_rule(
                 expected_type in filename
                 or expected_type in mime_type
             ):
-
                 found = True
                 break
 
         if not found:
             return False
-
 
     # ========================================================
     # UNREAD
@@ -404,7 +407,6 @@ def matches_rule(
         ):
             return False
 
-
     # ========================================================
     # STARRED
     # ========================================================
@@ -421,7 +423,6 @@ def matches_rule(
             != conditions["is_starred"]
         ):
             return False
-
 
     # ========================================================
     # GMAIL LABEL
@@ -443,7 +444,6 @@ def matches_rule(
 
         if expected_label not in labels:
             return False
-
 
     # ========================================================
     # ALL CONDITIONS PASSED
@@ -470,7 +470,6 @@ def find_matching_rules(
             email,
             rule
         ):
-
             matches.append(rule)
 
     return matches
