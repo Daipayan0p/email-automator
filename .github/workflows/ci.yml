@@ -138,9 +138,11 @@ jobs:
 
           host: ${{ secrets.VM_HOST }}
 
-          username: ${{ secrets.VM_USER }}
+          username: ${{ secrets.VM_USER || secrets.VM_USERNAME }}
 
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY || secrets.VM_SSH_PRIVATE_KEY }}
+
+          passphrase: ${{ secrets.SSH_KEY_PASSPHRASE || secrets.VM_SSH_KEY_PASSPHRASE }}
 
           script: |
 
