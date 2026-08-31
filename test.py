@@ -8,7 +8,6 @@ from app.repositories.email_repository import get_action_history
 
 EMAIL_ID = "1a053d6143db6018"
 
-
 # ============================================================
 # INITIALIZE DATABASE
 # ============================================================
