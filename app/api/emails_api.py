@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.repositories.email_repository import (
     get_all_emails,
@@ -6,6 +6,7 @@ from app.repositories.email_repository import (
     delete_email
 
 )
+from app.core.security import verify_api_key
 
 
 # ============================================================
@@ -14,7 +15,8 @@ from app.repositories.email_repository import (
 
 router = APIRouter(
     prefix="/emails",
-    tags=["Emails"]
+    tags=["Emails"],
+    dependencies=[Depends(verify_api_key)]
 )
 
 

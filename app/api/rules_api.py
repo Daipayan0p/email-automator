@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional
 
@@ -9,6 +9,7 @@ from app.repositories.rule_repository import (
     update_rule,
     delete_rule
 )
+from app.core.security import verify_api_key
 
 
 # ============================================================
@@ -17,7 +18,8 @@ from app.repositories.rule_repository import (
 
 router = APIRouter(
     prefix="/rules",
-    tags=["Rules"]
+    tags=["Rules"],
+    dependencies=[Depends(verify_api_key)]
 )
 
 

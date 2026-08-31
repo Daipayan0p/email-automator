@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.repositories.email_repository import get_action_history
+from app.core.security import verify_api_key
 
 
 # ============================================================
@@ -9,7 +10,8 @@ from app.repositories.email_repository import get_action_history
 
 router = APIRouter(
     prefix="/actions",
-    tags=["Action History"]
+    tags=["Action History"],
+    dependencies=[Depends(verify_api_key)]
 )
 
 

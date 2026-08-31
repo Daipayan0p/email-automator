@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.gmail import get_gmail_service
@@ -9,6 +9,7 @@ from app.core.query_builder import build_gmail_query
 from app.core.pubsub import decode_pubsub_message, validate_notification
 from app.core.queue import enqueue_notification
 from app.services.pubsub_worker import wake_pubsub_worker
+from app.core.security import verify_api_key, verify_pubsub_token
 
 router = APIRouter()
 
@@ -128,7 +129,8 @@ def health():
 
 @router.get("/emails/{message_id}")
 def get_email(
-    message_id: str
+    message_id: str,
+    _: None = Depends(verify_api_key)
 ):
 
     try:
@@ -208,7 +210,8 @@ def get_email(
 
 @router.post("/search")
 def search_emails(
-    request: SearchRequest
+    request: SearchRequest,
+    _: None = Depends(verify_api_key)
 ):
 
     try:
@@ -436,8 +439,11 @@ def search_emails(
 
 @router.post("/pubsub")
 async def pubsub_webhook(
-    body: dict
+    body: dict,
+    token: Optional[str] = Query(default=None)
 ):
+
+    verify_pubsub_token(token)
 
     try:
         notification = decode_pubsub_message(body)

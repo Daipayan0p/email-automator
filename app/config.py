@@ -21,3 +21,6 @@ OAUTH_REDIRECT_URI = os.getenv(
     "OAUTH_REDIRECT_URI",
     "http://localhost:8080/auth/google/callback"
 )
+
+API_KEY = os.getenv("API_KEY")
+PUBSUB_TOKEN = os.getenv("PUBSUB_TOKEN")

@@ -5,7 +5,7 @@ import os
 # the requested scope. oauthlib otherwise treats that response as a failure.
 os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from google_auth_oauthlib.flow import Flow
 
 from app.core.auth_store import (
@@ -18,6 +18,7 @@ from app.core.auth_store import (
 from app.config import CREDENTIALS_FILE, OAUTH_REDIRECT_URI
 from app.core.gmail import SCOPES
 from app.services.gmail_watch import start_gmail_watch
+from app.core.security import verify_api_key
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -41,7 +42,7 @@ def create_flow():
     )
 
 
-@router.get("/google/login")
+@router.get("/google/login", dependencies=[Depends(verify_api_key)])
 def google_login():
     flow = create_flow()
     authorization_url, state = flow.authorization_url(
@@ -96,7 +97,7 @@ def google_callback(code: str, state: str):
     return response
 
 
-@router.get("/status")
+@router.get("/status", dependencies=[Depends(verify_api_key)])
 def auth_status():
     token = load_token()
     return {
@@ -105,7 +106,7 @@ def auth_status():
     }
 
 
-@router.delete("/google")
+@router.delete("/google", dependencies=[Depends(verify_api_key)])
 def disconnect_google():
     delete_token()
     return {"status": "disconnected"}
