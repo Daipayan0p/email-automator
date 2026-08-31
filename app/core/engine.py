@@ -20,7 +20,7 @@ from .attachments import (
 from .actions import (
     execute_actions
 )
-
+from ..utils import send_telegram_notification
 
 # ============================================================
 # ACTION CONFLICT GROUPS
@@ -619,6 +619,29 @@ def process_email(
                 }
 
             })
+
+    # ========================================================
+# TELEGRAM NOTIFICATION
+# ========================================================
+
+    if matched:
+
+        rule_names = [
+            rule.get("name", "Unnamed Rule")
+            for rule in matching_rules
+        ]
+
+        send_telegram_notification(
+            subject=email.get(
+                "subject",
+                "No Subject"
+            ),
+            sender=email.get(
+                "sender",
+                ""
+            ),
+            rule_names=rule_names
+        )
 
 
     # ========================================================
