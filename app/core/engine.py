@@ -20,7 +20,7 @@ from .attachments import (
 from .actions import (
     execute_actions
 )
-from ..utils import send_telegram_notification
+from ..utils.telegram import send_telegram_notification
 
 # ============================================================
 # ACTION CONFLICT GROUPS
