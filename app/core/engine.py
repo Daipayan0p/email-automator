@@ -300,7 +300,8 @@ def process_email(
 
         if not matches_rule(
             email,
-            rule
+            rule,
+            include_query=False
         ):
             continue
 

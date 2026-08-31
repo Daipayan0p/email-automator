@@ -137,7 +137,8 @@ def text_matches(
 
 def matches_rule(
     email,
-    rule
+    rule,
+    include_query=True
 ):
 
     if not isinstance(
@@ -268,7 +269,7 @@ def matches_rule(
     # GENERAL QUERY
     # ========================================================
 
-    if conditions.get("query"):
+    if include_query and conditions.get("query"):
 
         query = str(
             conditions["query"]

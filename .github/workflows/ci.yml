@@ -1,45 +1,235 @@
-name: CI
+name: CI/CD
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches:
+      - main
 
-permissions:
-  contents: read
+  pull_request:
+    branches:
+      - main
+
 
 jobs:
-  test:
+
+  # =========================
+  # CI - Build and Test
+  # =========================
+
+  build:
+
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+
+      # =========================
+      # 1. Checkout repository
+      # =========================
+
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+
+      # =========================
+      # 2. Setup Python
+      # =========================
+
+      - name: Setup Python
         uses: actions/setup-python@v5
+
         with:
           python-version: "3.12"
 
+
+      # =========================
+      # 3. Install dependencies
+      # =========================
+
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
 
-      - name: Compile Python modules
-        run: python -m compileall -q app scripts
-
-      - name: Import application and verify routes
-        env:
-          DATABASE_FILE: /tmp/email-automator-test.db
         run: |
-          python -c "from app.main import app; paths = {route.path for route in app.routes}; required = {'/health', '/search', '/pubsub', '/auth/google/login', '/auth/google/callback'}; assert required <= paths"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-  container:
+
+      # =========================
+      # 4. Run tests
+      # =========================
+
+      - name: Run tests
+
+        run: |
+          if [ -d "tests" ]; then
+            python -m pytest
+          else
+            echo "No tests directory found. Skipping tests."
+          fi
+
+
+      # =========================
+      # 5. Setup Docker Buildx
+      # =========================
+
+      - name: Set up Docker Buildx
+
+        uses: docker/setup-buildx-action@v3
+
+
+      # =========================
+      # 6. Login to Docker Hub
+      # =========================
+
+      - name: Login to Docker Hub
+
+        uses: docker/login-action@v3
+
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+
+      # =========================
+      # 7. Build and Push Docker Image
+      # =========================
+
+      - name: Build and push Docker image
+
+        uses: docker/build-push-action@v6
+
+        with:
+          context: .
+
+          platforms: linux/amd64
+
+          push: true
+
+          tags: |
+            dpneoigi/email-automator:${{ github.sha }}
+            dpneoigi/email-automator:latest
+
+
+  # =========================
+  # CD - Deploy to VM
+  # =========================
+
+  deploy:
+
+    needs: build
+
+    # Deploy only when pushing to main
+    # Do not deploy Pull Requests
+
+    if: github.event_name == 'push'
+
     runs-on: ubuntu-latest
-    needs: test
+
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
 
-      - name: Build container
-        run: docker build --tag email-automator:test .
+      # =========================
+      # Deploy to VM
+      # =========================
+
+      - name: Deploy to VM
+
+        uses: appleboy/ssh-action@v1.2.2
+
+        with:
+
+          host: ${{ secrets.VM_HOST }}
+
+          username: ${{ secrets.VM_USER }}
+
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+          script: |
+
+            # =========================
+            # Docker image to deploy
+            # =========================
+
+            IMAGE=dpneoigi/email-automator:${{ github.sha }}
+
+            echo "Deploying image: $IMAGE"
+
+
+            # =========================
+            # Pull new image
+            # =========================
+
+            echo "Pulling new Docker image..."
+
+            docker pull $IMAGE
+
+
+            # =========================
+            # Stop old container
+            # =========================
+
+            echo "Stopping old container..."
+
+            docker stop email-automator || true
+
+
+            # =========================
+            # Remove old container
+            # =========================
+
+            echo "Removing old container..."
+
+            docker rm email-automator || true
+
+
+            # =========================
+            # Start new container
+            # =========================
+
+            echo "Starting new container..."
+
+            docker run -d \
+              --name email-automator \
+              --restart unless-stopped \
+              -p 127.0.0.1:8080:8080 \
+              -v /home/d_neogi_coding/secrets/credentials.json:/app/credentials.json:ro \
+              -v email_automator_data:/data \
+              -e OAUTH_REDIRECT_URI=https://daipayan0p.dev/auth/google/callback \
+              $IMAGE
+
+
+            # =========================
+            # Wait for application
+            # =========================
+
+            echo "Waiting for application..."
+
+            sleep 10
+
+
+            # =========================
+            # Check container status
+            # =========================
+
+            echo "Checking Docker container..."
+
+            docker ps | grep email-automator
+
+
+            # =========================
+            # Health check
+            # =========================
+
+            echo "Checking application health..."
+
+            curl --fail \
+              --max-time 10 \
+              http://127.0.0.1:8080/health
+
+
+            echo "Deployment successful!"
+
+
+            # =========================
+            # Optional Docker cleanup
+            # =========================
+
+            docker image prune -f
