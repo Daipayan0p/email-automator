@@ -277,6 +277,56 @@ def init_database():
 
 
     # ========================================================
+    # PUB/SUB NOTIFICATION QUEUE
+    # ========================================================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pubsub_queue (
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            notification_key TEXT NOT NULL UNIQUE,
+
+            notification TEXT NOT NULL,
+
+            status TEXT NOT NULL DEFAULT 'pending',
+
+            attempts INTEGER NOT NULL DEFAULT 0,
+
+            available_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+            last_error TEXT,
+
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+    # ========================================================
+    # PROCESSED GMAIL MESSAGES
+    # ========================================================
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS processed_messages (
+
+            message_id TEXT PRIMARY KEY,
+
+            status TEXT NOT NULL,
+
+            attempts INTEGER NOT NULL DEFAULT 1,
+
+            last_error TEXT,
+
+            processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+    # ========================================================
     # COMMIT
     # ========================================================
 

@@ -175,6 +175,41 @@ def save_state(history_id, watch_expiration=None):
         connection.close()
 
 
+def save_state_if_newer(history_id, watch_expiration=None):
+    """Persist a history ID only when it is not older than the current one."""
+    connection = get_connection()
+
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            "SELECT history_id FROM gmail_state WHERE id = 1"
+        ).fetchone()
+        current = row["history_id"] if row else None
+
+        if current is not None and int(history_id) <= int(current):
+            connection.rollback()
+            return False
+
+        connection.execute(
+            """
+            INSERT INTO gmail_state (id, history_id, watch_expiration, updated_at)
+            VALUES (1, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                history_id = excluded.history_id,
+                watch_expiration = COALESCE(excluded.watch_expiration, gmail_state.watch_expiration),
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (str(history_id), watch_expiration),
+        )
+        connection.commit()
+        return True
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
 def migrate_files_to_db(token_file="token.json", state_file="state.json"):
     migrated = {"token": False, "state": False}
 

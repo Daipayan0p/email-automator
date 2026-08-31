@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 from app.core.gmail import get_gmail_service
 from app.core.engine import process_email
 from app.core.query_builder import build_gmail_query
-from app.core.pubsub import (
-    process_pubsub_notification
-)
+from app.core.pubsub import decode_pubsub_message, validate_notification
+from app.core.queue import enqueue_notification
+from app.services.pubsub_worker import wake_pubsub_worker
 
 router = APIRouter()
 
@@ -440,30 +440,18 @@ async def pubsub_webhook(
 ):
 
     try:
-
-        result = process_pubsub_notification(
-            body
-        )
+        notification = decode_pubsub_message(body)
+        validate_notification(notification)
+        queued = enqueue_notification(body, notification)
+        wake_pubsub_worker()
 
         return {
             "status": "ok",
-            **result
+            "queued": queued
         }
 
     except Exception as e:
-
-        if "not authenticated" in str(e).lower():
-            raise HTTPException(
-                status_code=401,
-                detail="Gmail not authenticated. Call GET /auth/google/login first."
-            )
-
-        print(
-            "Pub/Sub error:",
-            str(e)
-        )
-
         raise HTTPException(
-            status_code=500,
-            detail=str(e)
+            status_code=400,
+            detail=f"Invalid Pub/Sub notification: {e}"
         )

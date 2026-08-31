@@ -3,6 +3,19 @@ import json
 from app.core.database import get_connection
 
 
+def email_exists(email_id):
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            "SELECT 1 FROM emails WHERE id = ?",
+            (email_id,)
+        ).fetchone()
+        return row is not None
+    finally:
+        connection.close()
+
+
 # ============================================================
 # SAVE EMAIL + ATTACHMENTS + RULE MATCHES
 # ============================================================

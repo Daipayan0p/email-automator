@@ -6,6 +6,10 @@ from app.core.auth_store import load_token
 from app.core.database import init_database
 from app.api.routes import router
 from app.services.gmail_watch import start_gmail_watch
+from app.services.pubsub_worker import (
+    start_pubsub_worker,
+    stop_pubsub_worker,
+)
 from app.api.auth_api import router as auth_router
 from app.api.rules_api import router as rules_router
 from app.api.actions_api import router as actions_router
@@ -27,6 +31,7 @@ async def lifespan(app: FastAPI):
     try:
 
         init_database()
+        start_pubsub_worker()
 
         watch_started = False
         if load_token():
@@ -59,6 +64,8 @@ async def lifespan(app: FastAPI):
         raise
 
     finally:
+
+        stop_pubsub_worker()
 
         print()
         print("=" * 60)
