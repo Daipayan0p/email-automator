@@ -146,6 +146,10 @@ def resolve_action_conflicts(
             if not action_value:
                 continue
 
+            # Telegram is a notification setting, not a Gmail action.
+            if action_name == "telegram_alert":
+                continue
+
             # ------------------------------------------------
             # Label actions are always additive
             # ------------------------------------------------
@@ -432,6 +436,12 @@ def process_email(
 
     selected_actions = []
 
+    telegram_enabled = any(
+        rule.get("actions", {}).get("telegram_alert", False)
+        for rule in matching_rules
+        if isinstance(rule.get("actions", {}), dict)
+    )
+
     if matched:
 
         selected_actions = resolve_action_conflicts(
@@ -624,7 +634,7 @@ def process_email(
 # TELEGRAM NOTIFICATION
 # ========================================================
 
-    if matched:
+    if matched and telegram_enabled:
 
         rule_names = [
             rule.get("name", "Unnamed Rule")

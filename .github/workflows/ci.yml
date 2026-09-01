@@ -87,20 +87,106 @@ jobs:
 
 
       # =========================
-      # 7. Build and Push Docker Image
+      # 7. Build Docker Image
       # =========================
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v6
 
         with:
           context: .
           platforms: linux/amd64
-          push: ${{ github.event_name == 'push' }}
+
+          # Load image into GitHub runner
+          # so we can test it before pushing
+          load: true
+
+          push: false
 
           tags: |
             dpneoigi/email-automator:${{ github.sha }}
             dpneoigi/email-automator:latest
+
+
+      # =========================
+      # 8. Run Docker Container
+      # =========================
+
+      - name: Run Docker container
+        run: |
+          docker run -d \
+            --name email-automator-test \
+            -p 8080:8080 \
+            -e API_KEY="ci-test-api-key" \
+            -e PUBSUB_TOKEN="ci-test-pubsub-token" \
+            -e OAUTH_REDIRECT_URI="http://localhost/auth/google/callback" \
+            dpneoigi/email-automator:${{ github.sha }}
+
+
+      # =========================
+      # 9. Wait for Application
+      # =========================
+
+      - name: Wait for application startup
+        run: |
+          echo "Waiting for application..."
+          sleep 10
+
+
+      # =========================
+      # 10. Check Container Status
+      # =========================
+
+      - name: Check container status
+        run: |
+          docker ps -a
+          docker inspect email-automator-test \
+            --format='{{.State.Status}}'
+
+
+      # =========================
+      # 11. Health Check
+      # =========================
+
+      - name: Check application health
+        run: |
+          curl --fail \
+            --max-time 10 \
+            http://127.0.0.1:8080/health
+
+
+      # =========================
+      # 12. Show Logs if CI Fails
+      # =========================
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          echo "========== CONTAINER LOGS =========="
+          docker logs email-automator-test || true
+
+
+      # =========================
+      # 13. Cleanup Test Container
+      # =========================
+
+      - name: Cleanup test container
+        if: always()
+        run: |
+          docker stop email-automator-test || true
+          docker rm email-automator-test || true
+
+
+      # =========================
+      # 14. Push Docker Image
+      # =========================
+
+      - name: Push Docker image
+        if: github.event_name == 'push'
+
+        run: |
+          docker push dpneoigi/email-automator:${{ github.sha }}
+          docker push dpneoigi/email-automator:latest
 
 
   # =========================
@@ -111,9 +197,7 @@ jobs:
 
     needs: build
 
-    # Deploy only when pushing to main
-    # Do not deploy Pull Requests
-
+    # Deploy only on push to main
     if: github.event_name == 'push'
 
     runs-on: ubuntu-latest
@@ -146,7 +230,7 @@ jobs:
           script: |
 
             # =========================
-            # Docker image to deploy
+            # Docker Image
             # =========================
 
             IMAGE=dpneoigi/email-automator:${{ github.sha }}
@@ -155,7 +239,7 @@ jobs:
 
 
             # =========================
-            # Pull new image
+            # Pull New Image
             # =========================
 
             echo "Pulling new Docker image..."
@@ -164,7 +248,7 @@ jobs:
 
 
             # =========================
-            # Stop old container
+            # Stop Old Container
             # =========================
 
             echo "Stopping old container..."
@@ -173,7 +257,7 @@ jobs:
 
 
             # =========================
-            # Remove old container
+            # Remove Old Container
             # =========================
 
             echo "Removing old container..."
@@ -182,7 +266,7 @@ jobs:
 
 
             # =========================
-            # Start new container
+            # Start New Container
             # =========================
 
             echo "Starting new container..."
@@ -201,7 +285,7 @@ jobs:
 
 
             # =========================
-            # Wait for application
+            # Wait for Application
             # =========================
 
             echo "Waiting for application..."
@@ -210,7 +294,7 @@ jobs:
 
 
             # =========================
-            # Check container status
+            # Check Container Status
             # =========================
 
             echo "Checking Docker container..."
@@ -219,7 +303,7 @@ jobs:
 
 
             # =========================
-            # Health check
+            # Health Check
             # =========================
 
             echo "Checking application health..."
@@ -233,7 +317,7 @@ jobs:
 
 
             # =========================
-            # Docker cleanup
+            # Docker Cleanup
             # =========================
 
             docker image prune -f

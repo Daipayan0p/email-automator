@@ -1,5 +1,12 @@
 import os
+from html import escape
+
 import requests
+
+
+def _telegram_value(value, limit=240):
+    value = " ".join(str(value or "").split())
+    return escape(value[:limit])
 
 
 def send_telegram_notification(subject, rule_names, sender=None):
@@ -15,15 +22,24 @@ def send_telegram_notification(subject, rule_names, sender=None):
         print("Telegram notification skipped: credentials not configured")
         return False
 
-    message = "📩 EMAIL RULE MATCHED!\n\n"
+    rules = ", ".join(
+        str(rule_name)
+        for rule_name in rule_names
+        if rule_name
+    )
 
-    message += f"Subject: {subject}\n"
+    message_lines = [
+        "<b>Email rule matched</b>",
+        f"<b>From:</b> {_telegram_value(sender) or 'Unknown'}",
+        f"<b>Subject:</b> {_telegram_value(subject) or 'No subject'}",
+    ]
 
-    if sender:
-        message += f"From: {sender}\n"
+    if rules:
+        message_lines.append(
+            f"<b>Rule:</b> {_telegram_value(rules)}"
+        )
 
-    if rule_names:
-        message += f"Rule(s): {', '.join(rule_names)}"
+    message = "\n".join(message_lines)
 
     try:
 
@@ -33,7 +49,8 @@ def send_telegram_notification(subject, rule_names, sender=None):
             url,
             json={
                 "chat_id": chat_id,
-                "text": message
+                "text": message,
+                "parse_mode": "HTML"
             },
             timeout=10
         )
